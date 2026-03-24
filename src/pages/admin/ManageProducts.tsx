@@ -2,18 +2,19 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
 import { useAuth } from '@/hooks/useAuth';
-import { useProducts, useCategories } from '@/hooks/useProducts';
+import { useProducts, useCategories, useBrands } from '@/hooks/useProducts';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Pencil, Trash2 } from 'lucide-react';
-import { BRANDS, FUEL_TYPES } from '@/lib/constants';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ArrowLeft, Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { FUEL_TYPES } from '@/lib/constants';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import ImageUpload from '@/components/admin/ImageUpload';
 
 interface ProductForm {
@@ -33,7 +34,7 @@ interface ProductForm {
 }
 
 const emptyForm: ProductForm = {
-  name: '', description: '', brand: 'Renault', fuel_type: 'Diesel', engine_code: '',
+  name: '', description: '', brand: '', fuel_type: 'Diesel', engine_code: '',
   price: '', mileage: '', year: '', condition: 'Tested - OK',
   compatibility: '', images: [], category_id: '', availability: true,
 };
@@ -45,6 +46,7 @@ const ManageProducts = () => {
   const queryClient = useQueryClient();
   const { data, isLoading } = useProducts({ per_page: 100 });
   const { data: categories } = useCategories();
+  const { data: brands, isLoading: brandsLoading } = useBrands();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<ProductForm>(emptyForm);
@@ -79,6 +81,13 @@ const ManageProducts = () => {
     setDialogOpen(true);
   };
 
+  const resetAfterSave = async () => {
+    await queryClient.refetchQueries({ queryKey: ['products'] });
+    setDialogOpen(false);
+    setForm(emptyForm);
+    setEditingId(null);
+  };
+
   const handleSave = async () => {
     if (!form.name || !form.engine_code || !form.price) {
       toast({ title: 'Missing fields', description: 'Name, engine code & price are required.', variant: 'destructive' });
@@ -101,20 +110,23 @@ const ManageProducts = () => {
       availability: form.availability,
     };
 
-    let error;
     if (editingId) {
-      ({ error } = await supabase.from('products').update(payload).eq('id', editingId));
+      const { error } = await supabase.from('products').update(payload).eq('id', editingId);
+      if (error) {
+        toast({ title: 'Error updating product', description: error.message, variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Product updated!' });
     } else {
-      ({ error } = await supabase.from('products').insert(payload));
+      const { error } = await supabase.from('products').insert(payload);
+      if (error) {
+        toast({ title: 'Error adding product', description: error.message, variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Product added!' });
     }
 
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: editingId ? 'Product updated!' : 'Product added!' });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      setDialogOpen(false);
-    }
+    resetAfterSave();
   };
 
   const handleDelete = async (id: string) => {
@@ -127,7 +139,17 @@ const ManageProducts = () => {
     }
   };
 
-  if (authLoading || !isAdmin) return null;
+  if (authLoading) {
+    return (
+      <Layout>
+        <div className="flex h-[50vh] w-full items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!isAdmin) return null;
 
   return (
     <Layout>
@@ -140,14 +162,15 @@ const ManageProducts = () => {
             <h1 className="text-2xl font-black uppercase text-foreground">Manage Products</h1>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={openAdd} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
-                <Plus className="h-4 w-4" /> Add Product
-              </Button>
-            </DialogTrigger>
+            <Button onClick={openAdd} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+              <Plus className="h-4 w-4" /> Add Product
+            </Button>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editingId ? 'Edit Product' : 'Add Product'}</DialogTitle>
+                <DialogDescription className="sr-only">
+                  Fill in the details for the engine product.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -159,8 +182,14 @@ const ManageProducts = () => {
                   <div>
                     <Label>Brand</Label>
                     <Select value={form.brand} onValueChange={v => setForm({ ...form, brand: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{BRANDS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                      <SelectTrigger><SelectValue placeholder={brandsLoading ? 'Loading...' : 'Select'} /></SelectTrigger>
+                      <SelectContent>
+                        {brandsLoading ? (
+                          <div className="flex items-center justify-center p-2"><Loader2 className="h-4 w-4 animate-spin" /></div>
+                        ) : (
+                          brands?.map(b => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)
+                        )}
+                      </SelectContent>
                     </Select>
                   </div>
                   <div>
@@ -179,13 +208,22 @@ const ManageProducts = () => {
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-4">
-                  <div><Label>Price (€) *</Label><Input type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} /></div>
+                  <div><Label>Price ($) *</Label><Input type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} /></div>
                   <div><Label>Mileage (km)</Label><Input type="number" value={form.mileage} onChange={e => setForm({ ...form, mileage: e.target.value })} /></div>
                   <div><Label>Year</Label><Input type="number" value={form.year} onChange={e => setForm({ ...form, year: e.target.value })} /></div>
                   <div><Label>Condition</Label><Input value={form.condition} onChange={e => setForm({ ...form, condition: e.target.value })} /></div>
                 </div>
                 <div><Label>Compatibility (comma-separated)</Label><Input value={form.compatibility} onChange={e => setForm({ ...form, compatibility: e.target.value })} placeholder="Renault Clio, Renault Megane" /></div>
                 
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="availability"
+                    checked={form.availability}
+                    onCheckedChange={(checked) => setForm({ ...form, availability: checked as boolean })}
+                  />
+                  <Label htmlFor="availability" className="cursor-pointer">Available for sale</Label>
+                </div>
+
                 <div>
                   <Label>Product Images</Label>
                   <ImageUpload images={form.images} onImagesChange={(imgs) => setForm({ ...form, images: imgs })} />
@@ -213,21 +251,38 @@ const ManageProducts = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {data?.products.map(p => (
-                  <tr key={p.id} className="hover:bg-muted/30">
-                    <td className="px-4 py-2"><img src={p.images?.[0] || '/placeholder.svg'} alt="" className="w-12 h-12 object-cover rounded" /></td>
-                    <td className="px-4 py-2 font-semibold text-foreground">{p.name}</td>
-                    <td className="px-4 py-2 text-muted-foreground">{p.engine_code}</td>
-                    <td className="px-4 py-2 text-muted-foreground">{p.brand}</td>
-                    <td className="px-4 py-2 font-bold text-primary">€{Number(p.price).toFixed(2)}</td>
-                    <td className="px-4 py-2 text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(p.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <p className="text-muted-foreground">Loading products...</p>
                       </div>
                     </td>
                   </tr>
-                ))}
+                ) : data?.products.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                      No products found.
+                    </td>
+                  </tr>
+                ) : (
+                  data?.products.map(p => (
+                    <tr key={p.id} className="hover:bg-muted/30">
+                      <td className="px-4 py-2"><img src={p.images?.[0] || '/placeholder.svg'} alt="" className="w-12 h-12 object-cover rounded" /></td>
+                      <td className="px-4 py-2 font-semibold text-foreground">{p.name}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{p.engine_code}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{p.brand}</td>
+                      <td className="px-4 py-2 font-bold text-primary">${Math.round(Number(p.price))}</td>
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleDelete(p.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

@@ -1,36 +1,38 @@
 import { Link } from 'react-router-dom';
 import { Settings, Phone, Mail, MapPin } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const Footer = () => {
+  const { t } = useTranslation();
   return (
     <footer className="bg-secondary text-secondary-foreground">
       <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* The Society */}
           <div>
-            <h3 className="text-primary font-bold uppercase text-sm mb-4 tracking-wider">The Society</h3>
+            <h3 className="text-primary font-bold uppercase text-sm mb-4 tracking-wider">{t('footer.society')}</h3>
             <ul className="space-y-2 text-sm text-secondary-foreground/70">
-              <li><Link to="/about" className="hover:text-primary transition-colors">Who we are</Link></li>
-              <li><Link to="/payment" className="hover:text-primary transition-colors">Payment methods</Link></li>
-              <li><Link to="/contact" className="hover:text-primary transition-colors">Contact</Link></li>
+              <li><Link to="/about" className="hover:text-primary transition-colors">{t('footer.who_we_are')}</Link></li>
+              <li><Link to="/payment" className="hover:text-primary transition-colors">{t('footer.payment_methods')}</Link></li>
+              <li><Link to="/contact" className="hover:text-primary transition-colors">{t('footer.contact')}</Link></li>
             </ul>
           </div>
 
           {/* Access Customers */}
           <div>
-            <h3 className="text-primary font-bold uppercase text-sm mb-4 tracking-wider">Access Customers</h3>
+            <h3 className="text-primary font-bold uppercase text-sm mb-4 tracking-wider">{t('footer.access_customers')}</h3>
             <ul className="space-y-2 text-sm text-secondary-foreground/70">
-              <li><Link to="/login" className="hover:text-primary transition-colors">My account</Link></li>
-              <li><Link to="/contact" className="hover:text-primary transition-colors">Quotes</Link></li>
+              <li><Link to="/login" className="hover:text-primary transition-colors">{t('footer.my_account')}</Link></li>
+              <li><Link to="/contact" className="hover:text-primary transition-colors">{t('footer.quotes')}</Link></li>
             </ul>
           </div>
 
           {/* Information */}
           <div>
-            <h3 className="text-primary font-bold uppercase text-sm mb-4 tracking-wider">Information</h3>
+            <h3 className="text-primary font-bold uppercase text-sm mb-4 tracking-wider">{t('footer.information')}</h3>
             <ul className="space-y-2 text-sm text-secondary-foreground/70">
-              <li><Link to="/terms" className="hover:text-primary transition-colors">Terms & Conditions</Link></li>
-              <li><Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/terms" className="hover:text-primary transition-colors">{t('footer.terms')}</Link></li>
+              <li><Link to="/privacy" className="hover:text-primary transition-colors">{t('footer.privacy')}</Link></li>
             </ul>
           </div>
 
@@ -41,8 +43,8 @@ const Footer = () => {
                 <Settings className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
-                <p className="font-black uppercase text-sm">My Used Engine</p>
-                <p className="text-primary font-bold text-xs">Since 2009</p>
+                <p className="font-black uppercase text-sm">{t('footer.company_info')}</p>
+                <p className="text-primary font-bold text-xs">{t('footer.since')}</p>
               </div>
             </div>
             <div className="space-y-2 text-sm text-secondary-foreground/70">
@@ -64,7 +66,7 @@ const Footer = () => {
       </div>
       <div className="border-t border-secondary-foreground/10">
         <div className="container mx-auto px-4 py-4 text-center text-xs text-secondary-foreground/50">
-          © {new Date().getFullYear()} My Used Engine. All rights reserved.
+          © {new Date().getFullYear()} {t('footer.company_info')}. {t('footer.rights_reserved')}
         </div>
       </div>
     </footer>

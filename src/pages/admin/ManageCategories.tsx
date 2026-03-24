@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Trash2, Loader2 } from 'lucide-react';
 import Layout from '@/components/layout/Layout';
 import { useAuth } from '@/hooks/useAuth';
-import { useCategories } from '@/hooks/useProducts';
+import { useCategories, useBrands } from '@/hooks/useProducts';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import ImageUpload from '@/components/admin/ImageUpload';
 import type { Category } from '@/lib/types';
 
 interface CategoryForm {
@@ -20,6 +22,7 @@ interface CategoryForm {
   parent_id: string | null;
   image_url: string;
   sort_order: string;
+  brand_ids: string[];
 }
 
 const emptyForm: CategoryForm = {
@@ -28,6 +31,7 @@ const emptyForm: CategoryForm = {
   parent_id: null,
   image_url: '',
   sort_order: '0',
+  brand_ids: [],
 };
 
 const slugify = (value: string) =>
@@ -43,6 +47,7 @@ const ManageCategories = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: categories } = useCategories();
+  const { data: brands, isLoading: brandsLoading } = useBrands();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<CategoryForm>(emptyForm);
@@ -62,20 +67,30 @@ const ManageCategories = () => {
     setDialogOpen(true);
   };
 
-  const openEdit = (category: Category) => {
+  const openEdit = async (category: Category) => {
     setEditingId(category.id);
+    
+    // Fetch associated brands for this category
+    const { data: brandAssociations } = await supabase
+      .from('category_brands')
+      .select('brand_id')
+      .eq('category_id', category.id);
+    
+    const associatedBrandIds = brandAssociations?.map(item => item.brand_id) || [];
+
     setForm({
       name: category.name,
       slug: category.slug,
       parent_id: category.parent_id,
       image_url: category.image_url || '',
       sort_order: String(category.sort_order ?? 0),
+      brand_ids: associatedBrandIds,
     });
     setDialogOpen(true);
   };
 
-  const resetAfterSave = () => {
-    queryClient.invalidateQueries({ queryKey: ['categories'] });
+  const resetAfterSave = async () => {
+    await queryClient.refetchQueries({ queryKey: ['categories'] });
     setDialogOpen(false);
     setForm(emptyForm);
     setEditingId(null);
@@ -98,25 +113,44 @@ const ManageCategories = () => {
       sort_order: Number(form.sort_order) || 0,
     };
 
-    let error;
+    let categoryId = editingId;
+
     if (editingId) {
-      ({ error } = await supabase.from('categories').update(payload).eq('id', editingId));
+      const { error } = await supabase.from('categories').update(payload).eq('id', editingId);
+      if (error) {
+        toast({ title: 'Error updating category', description: error.message, variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Category updated!' });
     } else {
-      ({ error } = await supabase.from('categories').insert(payload));
+      const { data, error } = await supabase.from('categories').insert(payload).select('id').single();
+      if (error) {
+        toast({ title: 'Error creating category', description: error.message, variant: 'destructive' });
+        return;
+      }
+      categoryId = data.id;
+      toast({ title: 'Category created!' });
     }
 
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      return;
+    // Manage brand associations
+    if (categoryId) {
+      await supabase.from('category_brands').delete().eq('category_id', categoryId);
+      if (form.brand_ids.length > 0) {
+        const associations = form.brand_ids.map(brandId => ({ category_id: categoryId!, brand_id: brandId }));
+        const { error: assocError } = await supabase.from('category_brands').insert(associations);
+        if (assocError) {
+          toast({ title: 'Error updating brands', description: assocError.message, variant: 'destructive' });
+        }
+      }
     }
 
-    toast({ title: editingId ? 'Category updated!' : 'Category created!' });
     resetAfterSave();
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this category?')) return;
 
+    await supabase.from('category_brands').delete().eq('category_id', id);
     const { error } = await supabase.from('categories').delete().eq('id', id);
 
     if (error) {
@@ -128,7 +162,17 @@ const ManageCategories = () => {
     queryClient.invalidateQueries({ queryKey: ['categories'] });
   };
 
-  if (authLoading || !isAdmin) return null;
+  if (authLoading) {
+    return (
+      <Layout>
+        <div className="flex h-[50vh] w-full items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!isAdmin) return null;
 
   return (
     <Layout>
@@ -144,14 +188,15 @@ const ManageCategories = () => {
           </div>
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={openAdd} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
-                <Plus className="h-4 w-4" /> Add Category
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-xl">
+            <Button onClick={openAdd} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
+              <Plus className="h-4 w-4" /> Add Category
+            </Button>
+            <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editingId ? 'Edit Category' : 'Add Category'}</DialogTitle>
+                <DialogDescription className="sr-only">
+                  Manage category details and brand associations.
+                </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4">
@@ -207,12 +252,56 @@ const ManageCategories = () => {
                 </div>
 
                 <div>
-                  <Label>Image URL</Label>
+                  <Label>Image</Label>
+                  <ImageUpload
+                    images={form.image_url ? [form.image_url] : []}
+                    onImagesChange={urls => setForm(current => ({ ...current, image_url: urls[0] || '' }))}
+                    maxImages={1}
+                    path="categories"
+                  />
                   <Input
+                    className="mt-2"
                     value={form.image_url}
                     onChange={e => setForm(current => ({ ...current, image_url: e.target.value }))}
-                    placeholder="https://..."
+                    placeholder="Or paste an image URL (https://...)"
                   />
+                </div>
+
+                <div className="pt-2">
+                  <Label className="mb-3 block">Brands for this category</Label>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 max-h-[150px] overflow-y-auto p-3 border border-border rounded-md">
+                    {brandsLoading ? (
+                      <div className="col-span-2 flex justify-center py-4">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      </div>
+                    ) : (
+                      brands?.map(brand => (
+                        <div key={brand.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`brand-${brand.id}`}
+                            checked={form.brand_ids.includes(brand.id)}
+                            onCheckedChange={(checked) => {
+                              setForm(current => ({
+                                ...current,
+                                brand_ids: checked
+                                  ? [...current.brand_ids, brand.id]
+                                  : current.brand_ids.filter(id => id !== brand.id)
+                              }));
+                            }}
+                          />
+                          <Label
+                            htmlFor={`brand-${brand.id}`}
+                            className="text-xs font-medium cursor-pointer"
+                          >
+                            {brand.name}
+                          </Label>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-2 italic">
+                    Only selected brands will appear in the navigation and filters for this category.
+                  </p>
                 </div>
 
                 <Button onClick={handleSave} className="w-full bg-primary font-bold text-primary-foreground hover:bg-primary/90">
@@ -228,6 +317,7 @@ const ManageCategories = () => {
             <table className="w-full text-sm">
               <thead className="bg-muted">
                 <tr>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase text-muted-foreground">Image</th>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase text-muted-foreground">Name</th>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase text-muted-foreground">Slug</th>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase text-muted-foreground">Parent</th>
@@ -236,28 +326,56 @@ const ManageCategories = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {categories?.map(category => {
-                  const parent = categories.find(item => item.id === category.parent_id);
+                {!categories ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <p className="text-muted-foreground">Loading categories...</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : categories.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                      No categories found.
+                    </td>
+                  </tr>
+                ) : (
+                  categories.map(category => {
+                    const parent = categories.find(item => item.id === category.parent_id);
 
-                  return (
-                    <tr key={category.id} className="hover:bg-muted/30">
-                      <td className="px-4 py-3 font-semibold text-foreground">{category.name}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{category.slug}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{parent?.name || '—'}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{category.sort_order ?? 0}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => openEdit(category)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(category.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                    return (
+                      <tr key={category.id} className="hover:bg-muted/30">
+                        <td className="px-4 py-3">
+                          <div className="h-10 w-10 overflow-hidden rounded border border-border bg-muted/50">
+                            {category.image_url ? (
+                              <img src={category.image_url} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                                No image
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-foreground">{category.name}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{category.slug}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{parent?.name || '—'}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{category.sort_order ?? 0}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => openEdit(category)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(category.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

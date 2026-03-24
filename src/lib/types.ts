@@ -27,6 +27,15 @@ export interface Category {
   created_at: string;
 }
 
+export interface Brand {
+  id: string;
+  name: string;
+  slug: string;
+  image_url: string | null;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface CartItem {
   id: string;
   product_id: string;

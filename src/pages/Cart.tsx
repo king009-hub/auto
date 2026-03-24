@@ -4,8 +4,11 @@ import { useCart } from '@/hooks/useCart';
 import { useProducts } from '@/hooks/useProducts';
 import { Button } from '@/components/ui/button';
 import { Trash2, Plus, Minus, ShoppingCart } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { translateDynamic } from '@/lib/translate';
 
 const Cart = () => {
+  const { t } = useTranslation();
   const { items, updateQuantity, removeItem, clearCart } = useCart();
 
   // Fetch all products that are in cart
@@ -21,13 +24,13 @@ const Cart = () => {
 
   if (items.length === 0) {
     return (
-      <Layout>
+      <Layout title={t('cart.title')}>
         <div className="container mx-auto px-4 py-16 text-center">
           <ShoppingCart className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-          <h2 className="text-2xl font-bold text-foreground mb-2">Your cart is empty</h2>
-          <p className="text-muted-foreground mb-6">Browse our collection of quality used engines.</p>
+          <h2 className="text-2xl font-bold text-foreground mb-2">{t('cart.empty')}</h2>
+          <p className="text-muted-foreground mb-6">{t('home.hero_subtitle')}</p>
           <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground">
-            <Link to="/products">Browse Engines</Link>
+            <Link to="/products">{t('cart.continue_shopping')}</Link>
           </Button>
         </div>
       </Layout>
@@ -35,28 +38,29 @@ const Cart = () => {
   }
 
   return (
-    <Layout>
+    <Layout title={t('cart.title')}>
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-black uppercase text-foreground mb-6">Shopping Cart</h1>
+        <h1 className="text-2xl font-black uppercase text-foreground mb-6">{t('cart.title')}</h1>
 
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-4">
             {items.map(item => {
               const product = getProduct(item.product_id);
               if (!product) return null;
+              const translatedName = translateDynamic(product.name);
               return (
                 <div key={item.product_id} className="bg-card border border-border rounded-lg p-4 flex gap-4">
                   <img
                     src={product.images?.[0] || '/placeholder.svg'}
-                    alt={product.name}
+                    alt={translatedName}
                     className="w-24 h-24 object-cover rounded"
                   />
                   <div className="flex-1">
                     <Link to={`/products/${product.id}`} className="font-bold text-foreground hover:text-primary">
-                      {product.name}
+                      {translatedName}
                     </Link>
-                    <p className="text-xs text-muted-foreground">Ref: {product.engine_code}</p>
-                    <p className="text-primary font-bold mt-1">€{Number(product.price).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</p>
+                    <p className="text-xs text-muted-foreground">{t('products.engine_code')}: {product.engine_code}</p>
+                    <p className="text-primary font-bold mt-1">${Math.round(Number(product.price))}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button onClick={() => updateQuantity(item.product_id, item.quantity - 1)} className="p-1 hover:bg-muted rounded">
@@ -77,28 +81,28 @@ const Cart = () => {
 
           {/* Summary */}
           <div className="bg-card border border-border rounded-lg p-6 h-fit">
-            <h2 className="font-bold uppercase text-lg mb-4 text-foreground">Order Summary</h2>
+            <h2 className="font-bold uppercase text-lg mb-4 text-foreground">{t('cart.summary')}</h2>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span className="font-bold text-foreground">€{total.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</span>
+                <span className="text-muted-foreground">{t('cart.subtotal')}</span>
+                <span className="font-bold text-foreground">${Math.round(total)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Shipping</span>
+                <span className="text-muted-foreground">{t('cart.shipping')}</span>
                 <span className="text-foreground">Calculated at checkout</span>
               </div>
               <div className="border-t border-border pt-2 mt-2">
                 <div className="flex justify-between text-lg font-bold">
-                  <span className="text-foreground">Total</span>
-                  <span className="text-primary">€{total.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</span>
+                  <span className="text-foreground">{t('cart.total')}</span>
+                  <span className="text-primary">${Math.round(total)}</span>
                 </div>
               </div>
             </div>
             <Button className="w-full mt-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold uppercase">
-              Proceed to Checkout
+              {t('cart.checkout')}
             </Button>
             <Button variant="ghost" size="sm" className="w-full mt-2 text-muted-foreground" onClick={clearCart}>
-              Clear Cart
+              {t('cart.remove')}
             </Button>
           </div>
         </div>

@@ -55,7 +55,7 @@ const ManageOrders = () => {
                     <td className="px-4 py-3">
                       <span className="px-2 py-1 bg-primary/10 text-primary text-xs font-bold rounded capitalize">{o.status}</span>
                     </td>
-                    <td className="px-4 py-3 font-bold text-foreground">€{Number(o.total).toFixed(2)}</td>
+                    <td className="px-4 py-3 font-bold text-foreground">${Math.round(Number(o.total))}</td>
                     <td className="px-4 py-3 text-muted-foreground">{new Date(o.created_at).toLocaleDateString()}</td>
                   </tr>
                 )) : (

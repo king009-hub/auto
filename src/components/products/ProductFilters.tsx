@@ -1,11 +1,15 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { BRANDS, FUEL_TYPES } from '@/lib/constants';
+import { FUEL_TYPES } from '@/lib/constants';
+import { useCategories, useBrands } from '@/hooks/useProducts';
 import type { ProductFilters as FiltersType } from '@/lib/types';
-import { Filter, X } from 'lucide-react';
+import { Filter, X, Loader2 } from 'lucide-react';
+
+import { useTranslation } from 'react-i18next';
+import { translateDynamic } from '@/lib/translate';
 
 interface ProductFiltersProps {
   filters: FiltersType;
@@ -13,8 +17,27 @@ interface ProductFiltersProps {
 }
 
 const ProductFilters = ({ filters, onFiltersChange }: ProductFiltersProps) => {
+  const { t } = useTranslation();
   const [priceRange, setPriceRange] = useState([filters.price_min || 0, filters.price_max || 5000]);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { data: categories, isLoading: categoriesLoading } = useCategories();
+  const { data: brands, isLoading: brandsLoading } = useBrands();
+
+  const filteredBrands = useMemo(() => {
+    if (!brands) return [];
+    if (!filters.category_id || !categories) return brands;
+    
+    const selectedCategory = categories.find(c => c.id === filters.category_id);
+    if (!selectedCategory || !(selectedCategory as any).brand_ids) return brands;
+    
+    return brands.filter(brand => (selectedCategory as any).brand_ids.includes(brand.id));
+  }, [brands, filters.category_id, categories]);
+
+  const toggleCategory = (categoryId: string) => {
+    // Current filtering in Products.tsx uses category slug in URL, 
+    // but the filter object uses category_id.
+    onFiltersChange({ ...filters, category_id: filters.category_id === categoryId ? undefined : categoryId, page: 1 });
+  };
 
   const toggleBrand = (brand: string) => {
     const current = filters.brand || [];
@@ -42,36 +65,20 @@ const ProductFilters = ({ filters, onFiltersChange }: ProductFiltersProps) => {
     onFiltersChange({ sort: filters.sort, page: 1 });
   };
 
-  const hasFilters = filters.brand?.length || filters.fuel_type?.length || filters.engine_code || filters.price_min || filters.price_max;
+  const hasFilters = filters.brand?.length || filters.fuel_type?.length || filters.engine_code || filters.price_min || filters.price_max || filters.category_id;
 
   const content = (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="font-bold text-sm uppercase tracking-wider text-foreground">Filters</h3>
+        <h3 className="font-bold text-sm uppercase tracking-wider text-foreground">{t('products.characteristics')}</h3>
         {hasFilters && (
-          <button onClick={clearAll} className="text-xs text-primary hover:underline">Clear all</button>
+          <button onClick={clearAll} className="text-xs text-primary hover:underline">{t('cart.remove')}</button>
         )}
-      </div>
-
-      {/* Brand */}
-      <div>
-        <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-3">Brand</h4>
-        <div className="space-y-2">
-          {BRANDS.map(brand => (
-            <label key={brand} className="flex items-center gap-2 cursor-pointer text-sm">
-              <Checkbox
-                checked={filters.brand?.includes(brand) || false}
-                onCheckedChange={() => toggleBrand(brand)}
-              />
-              {brand}
-            </label>
-          ))}
-        </div>
       </div>
 
       {/* Fuel Type */}
       <div>
-        <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-3">Fuel Type</h4>
+        <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-3">{t('products.fuel_type')}</h4>
         <div className="space-y-2">
           {FUEL_TYPES.map(fuel => (
             <label key={fuel} className="flex items-center gap-2 cursor-pointer text-sm">
@@ -79,27 +86,16 @@ const ProductFilters = ({ filters, onFiltersChange }: ProductFiltersProps) => {
                 checked={filters.fuel_type?.includes(fuel) || false}
                 onCheckedChange={() => toggleFuelType(fuel)}
               />
-              {fuel}
+              {translateDynamic(fuel)}
             </label>
           ))}
         </div>
       </div>
 
-      {/* Engine Code */}
-      <div>
-        <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-3">Engine Code</h4>
-        <Input
-          placeholder="e.g. K9K"
-          value={filters.engine_code || ''}
-          onChange={e => handleEngineCode(e.target.value)}
-          className="bg-background"
-        />
-      </div>
-
       {/* Price Range */}
       <div>
         <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-3">
-          Price Range: €{priceRange[0]} - €{priceRange[1]}
+          {t('products.price')}: ${priceRange[0]} - ${priceRange[1]}
         </h4>
         <Slider
           min={0}
@@ -111,6 +107,40 @@ const ProductFilters = ({ filters, onFiltersChange }: ProductFiltersProps) => {
         />
       </div>
 
+      {/* Brand */}
+      <div>
+        <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-3">{t('products.brand')}</h4>
+        <div className="space-y-2">
+          {brandsLoading ? (
+            <div className="flex items-center text-xs text-muted-foreground italic">
+              <Loader2 className="h-3 w-3 animate-spin mr-2" />
+              {t('products.loading')}
+            </div>
+          ) : (
+            filteredBrands?.map(brand => (
+              <label key={brand.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                <Checkbox
+                  checked={filters.brand?.includes(brand.name) || false}
+                  onCheckedChange={() => toggleBrand(brand.name)}
+                />
+                {translateDynamic(brand.name)}
+              </label>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Engine Code */}
+      <div>
+        <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-3">{t('products.engine_code')}</h4>
+        <Input
+          placeholder="e.g. K9K"
+          value={filters.engine_code || ''}
+          onChange={e => handleEngineCode(e.target.value)}
+          className="bg-background"
+        />
+      </div>
+
       {/* Availability */}
       <div>
         <label className="flex items-center gap-2 cursor-pointer text-sm">
@@ -118,7 +148,7 @@ const ProductFilters = ({ filters, onFiltersChange }: ProductFiltersProps) => {
             checked={filters.availability === true}
             onCheckedChange={(checked) => onFiltersChange({ ...filters, availability: checked ? true : undefined, page: 1 })}
           />
-          In Stock Only
+          {t('products.in_stock')}
         </label>
       </div>
     </div>
@@ -126,29 +156,7 @@ const ProductFilters = ({ filters, onFiltersChange }: ProductFiltersProps) => {
 
   return (
     <>
-      {/* Mobile filter button */}
-      <div className="lg:hidden mb-4">
-        <Button variant="outline" size="sm" onClick={() => setMobileOpen(!mobileOpen)} className="gap-2">
-          <Filter className="h-4 w-4" />
-          Filters
-          {hasFilters ? <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-xs">{String((filters.brand?.length || 0) + (filters.fuel_type?.length || 0))}</span> : null}
-        </Button>
-      </div>
-
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-secondary/50">
-          <div className="absolute right-0 top-0 h-full w-80 bg-card p-6 overflow-y-auto shadow-xl">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-bold uppercase">Filters</h2>
-              <button onClick={() => setMobileOpen(false)}><X className="h-5 w-5" /></button>
-            </div>
-            {content}
-          </div>
-        </div>
-      )}
-
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar - hidden on mobile/tablet */}
       <div className="hidden lg:block bg-card border border-border rounded-lg p-5">
         {content}
       </div>

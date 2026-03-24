@@ -7,16 +7,23 @@ import { Upload, X, Loader2 } from 'lucide-react';
 interface ImageUploadProps {
   images: string[];
   onImagesChange: (images: string[]) => void;
+  maxImages?: number;
+  path?: string;
 }
 
-const ImageUpload = ({ images, onImagesChange }: ImageUploadProps) => {
-  const [uploading, setUploading] = useState(false);
+const ImageUpload = ({ images, onImagesChange, maxImages = 10, path = 'products' }: ImageUploadProps) => {
+  const [uploading, setUploading] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+
+    if (images.length + files.length > maxImages) {
+      toast({ title: 'Too many images', description: `Maximum ${maxImages} images allowed.`, variant: 'destructive' });
+      return;
+    }
 
     setUploading(true);
     const newUrls: string[] = [];
@@ -25,7 +32,7 @@ const ImageUpload = ({ images, onImagesChange }: ImageUploadProps) => {
       for (const file of Array.from(files)) {
         const ext = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-        const filePath = `products/${fileName}`;
+        const filePath = `${path}/${fileName}`;
 
         const { error } = await supabase.storage
           .from('product-images')

@@ -1,15 +1,3 @@
-export const NAV_CATEGORIES = [
-  { name: 'ENGINES', slug: 'engines' },
-  { name: 'ENGINE PARTS', slug: 'engine-parts' },
-  { name: 'GEARBOXES', slug: 'gearboxes' },
-  { name: 'TURBO PARTS', slug: 'turbo-parts' },
-  { name: 'TURBO REHABILITATION KITS', slug: 'turbo-kits' },
-  { name: 'CARTOUCHES CHRA', slug: 'cartouches-chra' },
-  { name: 'COMPRESSORS', slug: 'compressors' },
-  { name: 'ELECTRIC MOTORS', slug: 'electric-motors' },
-] as const;
-
-export const BRANDS = ['Renault', 'Nissan', 'Mercedes', 'Volvo', 'Jeep'] as const;
 export const FUEL_TYPES = ['Diesel', 'Petrol'] as const;
 
-export const ITEMS_PER_PAGE = 12;
+export const ITEMS_PER_PAGE = 100;

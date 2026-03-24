@@ -1,24 +1,27 @@
 import type { Product } from '@/lib/types';
+import { useTranslation } from 'react-i18next';
+import { translateDynamic } from '@/lib/translate';
 
 interface SpecsTableProps {
   product: Product;
 }
 
 const SpecsTable = ({ product }: SpecsTableProps) => {
+  const { t } = useTranslation();
   const specs = [
-    { label: 'Engine Code', value: product.engine_code },
-    { label: 'Brand', value: product.brand },
-    { label: 'Fuel Type', value: product.fuel_type },
-    { label: 'Year', value: product.year?.toString() || 'N/A' },
-    { label: 'Mileage', value: product.mileage ? `${product.mileage.toLocaleString()} km` : 'N/A' },
-    { label: 'Condition', value: product.condition || 'N/A' },
-    { label: 'Availability', value: product.availability ? 'In Stock' : 'Out of Stock' },
+    { label: t('products.engine_code'), value: product.engine_code },
+    { label: t('products.brand'), value: translateDynamic(product.brand) },
+    { label: t('products.fuel_type'), value: translateDynamic(product.fuel_type) },
+    { label: t('products.year'), value: product.year?.toString() || 'N/A' },
+    { label: t('products.mileage'), value: product.mileage ? `${product.mileage.toLocaleString()} km` : 'N/A' },
+    { label: t('products.condition'), value: translateDynamic(product.condition) || 'N/A' },
+    { label: t('products.availability'), value: product.availability ? t('products.in_stock') : t('products.out_of_stock') },
   ];
 
   return (
     <div className="border border-border rounded-lg overflow-hidden">
       <div className="bg-secondary px-4 py-3">
-        <h3 className="font-bold text-sm uppercase tracking-wider text-secondary-foreground">Engine Specifications</h3>
+        <h3 className="font-bold text-sm uppercase tracking-wider text-secondary-foreground">{t('products.characteristics')}</h3>
       </div>
       <div className="divide-y divide-border">
         {specs.map(spec => (

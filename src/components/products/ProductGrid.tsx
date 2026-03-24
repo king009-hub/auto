@@ -1,6 +1,7 @@
 import ProductCard from './ProductCard';
 import type { Product } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useTranslation } from 'react-i18next';
 
 interface ProductGridProps {
   products: Product[];
@@ -8,6 +9,7 @@ interface ProductGridProps {
 }
 
 const ProductGrid = ({ products, loading }: ProductGridProps) => {
+  const { t } = useTranslation();
   if (loading) {
     return (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
@@ -26,7 +28,7 @@ const ProductGrid = ({ products, loading }: ProductGridProps) => {
   if (!products.length) {
     return (
       <div className="text-center py-16 text-muted-foreground">
-        <p className="text-lg">No products found.</p>
+        <p className="text-lg">{t('products.no_products')}</p>
       </div>
     );
   }

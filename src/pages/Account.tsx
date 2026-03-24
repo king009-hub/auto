@@ -17,10 +17,6 @@ const Account = () => {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate('/login');
-  }, [user, authLoading, navigate]);
-
-  useEffect(() => {
     if (user) {
       supabase.from('profiles').select('*').eq('id', user.id).single().then(({ data }) => {
         if (data) setProfile({ full_name: data.full_name || '', phone: data.phone || '', address: data.address || '' });
@@ -42,8 +38,6 @@ const Account = () => {
     await signOut();
     navigate('/');
   };
-
-  if (authLoading || !user) return null;
 
   return (
     <Layout>

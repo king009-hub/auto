@@ -9,8 +9,11 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Home } from 'lucide-react';
 import type { ProductFilters as FiltersType } from '@/lib/types';
 import { ITEMS_PER_PAGE } from '@/lib/constants';
+import { useTranslation } from 'react-i18next';
+import { translateDynamic } from '@/lib/translate';
 
 const Products = () => {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: categories } = useCategories();
 
@@ -48,22 +51,65 @@ const Products = () => {
     if (newFilters.search) params.set('search', newFilters.search);
     if (newFilters.sort && newFilters.sort !== 'newest') params.set('sort', newFilters.sort);
     if (newFilters.page && newFilters.page > 1) params.set('page', String(newFilters.page));
-    const catSlug = searchParams.get('category');
-    if (catSlug) params.set('category', catSlug);
+    
+    // Update category from category_id
+    if (newFilters.category_id && categories) {
+      const cat = categories.find(c => c.id === newFilters.category_id);
+      if (cat) params.set('category', cat.slug);
+    } else {
+      const catSlug = searchParams.get('category');
+      if (catSlug && !newFilters.category_id) {
+        // If we're clearing the category from filters, don't re-add the slug
+      } else if (catSlug) {
+        params.set('category', catSlug);
+      }
+    }
+
     setSearchParams(params);
   };
 
   const totalPages = Math.ceil((data?.total || 0) / ITEMS_PER_PAGE);
   const currentPage = filters.page || 1;
-  const categoryName = searchParams.get('category')?.replace('-', ' ') || 'All Products';
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('...');
+
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
+      for (let i = start; i <= end; i++) pages.push(i);
+
+      if (currentPage < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+  
+  const categoryName = useMemo(() => {
+    const catSlug = searchParams.get('category');
+    if (catSlug && categories) {
+      const cat = categories.find(c => c.slug === catSlug);
+      return translateDynamic(cat?.name) || translateDynamic(catSlug.replace('-', ' '));
+    }
+    return t('products.all_products');
+  }, [searchParams, categories, t]);
+
+  const metaDescription = `Browse our selection of ${categoryName}. High-quality auto parts, used engines, and gearboxes available at Engine Markets.`;
 
   return (
-    <Layout>
+    <Layout title={categoryName} description={metaDescription}>
       {/* Breadcrumb */}
       <div className="bg-card border-b border-border">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Link to="/" className="hover:text-primary flex items-center gap-1"><Home className="h-3 w-3" /> Home</Link>
+            <Link to="/" className="hover:text-primary flex items-center gap-1"><Home className="h-3 w-3" /> {t('products.home')}</Link>
             <span>/</span>
             <span className="text-foreground capitalize font-semibold">{categoryName}</span>
           </div>
@@ -71,9 +117,9 @@ const Products = () => {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        <div className="flex gap-8">
-          {/* Sidebar */}
-          <div className="w-64 shrink-0">
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Sidebar - hidden on mobile/tablet */}
+          <div className="hidden lg:block w-64 shrink-0">
             <ProductFilters filters={filters} onFiltersChange={updateFilters} />
           </div>
 
@@ -91,33 +137,43 @@ const Products = () => {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-8">
+              <div className="flex items-center justify-center gap-2 mt-12 border-t border-border pt-8">
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   disabled={currentPage <= 1}
                   onClick={() => updateFilters({ ...filters, page: currentPage - 1 })}
+                  className="gap-1 font-bold text-xs uppercase"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4" /> {t('products.previous')}
                 </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                  <Button
-                    key={p}
-                    variant={p === currentPage ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => updateFilters({ ...filters, page: p })}
-                    className={p === currentPage ? 'bg-primary text-primary-foreground' : ''}
-                  >
-                    {p}
-                  </Button>
-                ))}
+                
+                <div className="flex items-center gap-1">
+                  {getPageNumbers().map((p, i) => (
+                    p === '...' ? (
+                      <span key={`ellipsis-${i}`} className="px-2 text-muted-foreground">...</span>
+                    ) : (
+                      <Button
+                        key={`page-${p}`}
+                        variant={p === currentPage ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => updateFilters({ ...filters, page: p as number })}
+                        className={`w-9 h-9 font-bold ${p === currentPage ? 'bg-[#b38a2e] text-white hover:bg-[#a07a29]' : 'text-foreground'}`}
+                      >
+                        {p}
+                      </Button>
+                    )
+                  ))}
+                </div>
+
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   disabled={currentPage >= totalPages}
                   onClick={() => updateFilters({ ...filters, page: currentPage + 1 })}
+                  className="gap-1 font-bold text-xs uppercase"
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  {t('products.next')} <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             )}
