@@ -96,6 +96,10 @@ const Products = () => {
     const catSlug = searchParams.get('category');
     if (catSlug && categories) {
       const cat = categories.find(c => c.slug === catSlug);
+      if (cat?.parent_id) {
+        const parent = categories.find(p => p.id === cat.parent_id);
+        return `${translateDynamic(parent?.name)} / ${translateDynamic(cat.name)}`;
+      }
       return translateDynamic(cat?.name) || translateDynamic(catSlug.replace('-', ' '));
     }
     return t('products.all_products');
@@ -125,13 +129,18 @@ const Products = () => {
 
           {/* Main content */}
           <div className="flex-1 min-w-0">
-            <ProductSort
-              value={filters.sort || 'newest'}
-              onChange={v => updateFilters({ ...filters, sort: v as FiltersType['sort'], page: 1 })}
-              total={data?.total || 0}
-              page={currentPage}
-              perPage={ITEMS_PER_PAGE}
-            />
+            <div className="bg-card border border-border p-3 rounded-lg mb-6 flex flex-col lg:flex-row items-center justify-between gap-4">
+              <div className="lg:hidden w-full sm:w-auto">
+                <ProductFilters filters={filters} onFiltersChange={updateFilters} isMobile />
+              </div>
+              <ProductSort
+                value={filters.sort || 'newest'}
+                onChange={v => updateFilters({ ...filters, sort: v as FiltersType['sort'], page: 1 })}
+                total={data?.total || 0}
+                page={currentPage}
+                perPage={ITEMS_PER_PAGE}
+              />
+            </div>
 
             <ProductGrid products={data?.products || []} loading={isLoading} />
 

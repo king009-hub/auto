@@ -13,13 +13,13 @@ const TopBar = () => {
             <span className="opacity-40">|</span>
             <Link to="/contact" className="hover:text-white/80 px-3">Contact us</Link>
           </div>
-          <div className="font-bold uppercase text-[12px] tracking-wide">
+          <div className="font-medium uppercase text-[12px] tracking-wide">
             USED AUTO PARTS
           </div>
         </div>
         {/* Mobile */}
         <div className="md:hidden py-2 text-center">
-          <span className="font-bold tracking-widest uppercase text-xs">USED AUTO PARTS</span>
+          <span className="font-medium tracking-widest uppercase text-xs">USED AUTO PARTS</span>
         </div>
       </div>
     </div>

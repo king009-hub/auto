@@ -1,6 +1,7 @@
 export interface Product {
   id: string;
   name: string;
+  slug: string;
   description: string | null;
   brand: string;
   fuel_type: string;
@@ -13,6 +14,7 @@ export interface Product {
   images: string[];
   category_id: string | null;
   availability: boolean;
+  youtube_url: string | null;
   created_at: string;
   updated_at: string;
 }

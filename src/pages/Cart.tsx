@@ -56,7 +56,7 @@ const Cart = () => {
                     className="w-24 h-24 object-cover rounded"
                   />
                   <div className="flex-1">
-                    <Link to={`/products/${product.id}`} className="font-bold text-foreground hover:text-primary">
+                    <Link to={`/products/${product.slug || product.id}`} className="font-bold text-foreground hover:text-primary">
                       {translatedName}
                     </Link>
                     <p className="text-xs text-muted-foreground">{t('products.engine_code')}: {product.engine_code}</p>

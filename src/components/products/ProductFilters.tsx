@@ -7,6 +7,7 @@ import { FUEL_TYPES } from '@/lib/constants';
 import { useCategories, useBrands } from '@/hooks/useProducts';
 import type { ProductFilters as FiltersType } from '@/lib/types';
 import { Filter, X, Loader2 } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 
 import { useTranslation } from 'react-i18next';
 import { translateDynamic } from '@/lib/translate';
@@ -14,9 +15,10 @@ import { translateDynamic } from '@/lib/translate';
 interface ProductFiltersProps {
   filters: FiltersType;
   onFiltersChange: (filters: FiltersType) => void;
+  isMobile?: boolean;
 }
 
-const ProductFilters = ({ filters, onFiltersChange }: ProductFiltersProps) => {
+const ProductFilters = ({ filters, onFiltersChange, isMobile }: ProductFiltersProps) => {
   const { t } = useTranslation();
   const [priceRange, setPriceRange] = useState([filters.price_min || 0, filters.price_max || 5000]);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -34,8 +36,6 @@ const ProductFilters = ({ filters, onFiltersChange }: ProductFiltersProps) => {
   }, [brands, filters.category_id, categories]);
 
   const toggleCategory = (categoryId: string) => {
-    // Current filtering in Products.tsx uses category slug in URL, 
-    // but the filter object uses category_id.
     onFiltersChange({ ...filters, category_id: filters.category_id === categoryId ? undefined : categoryId, page: 1 });
   };
 
@@ -67,7 +67,7 @@ const ProductFilters = ({ filters, onFiltersChange }: ProductFiltersProps) => {
 
   const hasFilters = filters.brand?.length || filters.fuel_type?.length || filters.engine_code || filters.price_min || filters.price_max || filters.category_id;
 
-  const content = (
+  const filterContent = (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-sm uppercase tracking-wider text-foreground">{t('products.characteristics')}</h3>
@@ -110,7 +110,7 @@ const ProductFilters = ({ filters, onFiltersChange }: ProductFiltersProps) => {
       {/* Brand */}
       <div>
         <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-3">{t('products.brand')}</h4>
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
           {brandsLoading ? (
             <div className="flex items-center text-xs text-muted-foreground italic">
               <Loader2 className="h-3 w-3 animate-spin mr-2" />
@@ -154,13 +154,37 @@ const ProductFilters = ({ filters, onFiltersChange }: ProductFiltersProps) => {
     </div>
   );
 
+  if (isMobile) {
+    return (
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetTrigger asChild>
+          <Button variant="outline" size="sm" className="lg:hidden flex items-center gap-2 font-bold uppercase text-xs tracking-widest border-[#cccccc] bg-[#f2f2f2]">
+            <Filter className="h-3.5 w-3.5" />
+            {t('products.characteristics')}
+            {hasFilters && <span className="ml-1 w-2 h-2 rounded-full bg-primary" />}
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-[300px] sm:w-[350px] overflow-y-auto bg-card">
+          <SheetHeader className="pb-4 border-b border-border mb-6">
+            <SheetTitle className="text-left font-black uppercase tracking-tighter text-xl">
+              {t('products.characteristics')}
+            </SheetTitle>
+          </SheetHeader>
+          {filterContent}
+          <div className="mt-8">
+            <Button onClick={() => setMobileOpen(false)} className="w-full font-bold uppercase tracking-widest bg-primary">
+              {t('products.view_all', { name: '' })}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
   return (
-    <>
-      {/* Desktop sidebar - hidden on mobile/tablet */}
-      <div className="hidden lg:block bg-card border border-border rounded-lg p-5">
-        {content}
-      </div>
-    </>
+    <div className="bg-card border border-border rounded-lg p-5">
+      {filterContent}
+    </div>
   );
 };
 

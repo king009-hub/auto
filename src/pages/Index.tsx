@@ -23,8 +23,8 @@ const Index = () => {
   return (
     <Layout title={t('home.hero_title')}>
       <div className="bg-background min-h-screen">
-        <div className="container mx-auto px-4 py-8">
-          <h2 className="text-2xl font-black uppercase text-foreground mb-6">{t('home.latest_products')}</h2>
+        <div className="container mx-auto px-4 py-8 md:py-12">
+          <h2 className="text-xl md:text-2xl font-black uppercase text-foreground mb-6 md:mb-8">{t('home.latest_products')}</h2>
 
           <ProductGrid products={data?.products || []} loading={isLoading} />
         </div>

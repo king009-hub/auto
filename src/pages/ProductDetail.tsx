@@ -7,18 +7,37 @@ import { useProduct, useRelatedProducts } from '@/hooks/useProducts';
 import { useCart } from '@/hooks/useCart';
 import { useWishlist } from '@/hooks/useWishlist';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Heart, Home, FileText } from 'lucide-react';
+import { ShoppingCart, Heart, Home, FileText, Youtube } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslation } from 'react-i18next';
 import { translateDynamic } from '@/lib/translate';
 
 const ProductDetail = () => {
   const { t } = useTranslation();
-  const { id } = useParams<{ id: string }>();
-  const { data: product, isLoading } = useProduct(id || '');
+  const { id: idOrSlug } = useParams<{ id: string }>();
+  const { data: product, isLoading } = useProduct(idOrSlug || '');
   const { data: related } = useRelatedProducts(product);
   const { addItem } = useCart();
   const { toggle, isWishlisted } = useWishlist();
+
+  const getYouTubeEmbedUrl = (url: string | null) => {
+    if (!url) return null;
+    let videoId = '';
+    try {
+      if (url.includes('v=')) {
+        videoId = url.split('v=')[1].split('&')[0];
+      } else if (url.includes('youtu.be/')) {
+        videoId = url.split('youtu.be/')[1].split('?')[0];
+      } else if (url.includes('embed/')) {
+        videoId = url.split('embed/')[1].split('?')[0];
+      } else if (url.includes('shorts/')) {
+        videoId = url.split('shorts/')[1].split('?')[0];
+      }
+    } catch (e) {
+      return null;
+    }
+    return videoId ? `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1` : null;
+  };
 
   if (isLoading) {
     return (
@@ -65,7 +84,7 @@ const ProductDetail = () => {
     },
     "offers": {
       "@type": "Offer",
-      "url": `https://enginemarkets.com/products/${product.id}`,
+      "url": `https://enginemarkets.com/products/${product.slug || product.id}`,
       "priceCurrency": "USD",
       "price": product.price,
       "itemCondition": "https://schema.org/UsedCondition",
@@ -146,6 +165,27 @@ const ProductDetail = () => {
             </div>
           </div>
         </div>
+
+        {/* Video Test Section */}
+        {getYouTubeEmbedUrl(product.youtube_url) && (
+          <div className="mt-12 pt-12 border-t border-border">
+            <h2 className="text-xl font-black uppercase text-foreground mb-6 flex items-center gap-2">
+              <Youtube className="h-6 w-6 text-red-600" />
+              Video Test
+            </h2>
+            <div className="max-w-3xl mx-auto aspect-video rounded-xl overflow-hidden shadow-lg border border-border bg-black">
+              <iframe
+                width="100%"
+                height="100%"
+                src={getYouTubeEmbedUrl(product.youtube_url)!}
+                title={`${translatedName} Video Test`}
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            </div>
+          </div>
+        )}
 
         {/* Related */}
         {related && related.length > 0 && (

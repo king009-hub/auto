@@ -32,7 +32,31 @@ export function useProducts(filters: ProductFilters = {}) {
           query = query.eq('availability', filters.availability);
         }
         if (filters.category_id) {
-          query = query.eq('category_id', filters.category_id);
+          // Fetch sub-categories to include them in the results
+          try {
+            const { data: subCats, error: catError } = await supabase
+              .from('categories')
+              .select('id')
+              .eq('parent_id', filters.category_id);
+            
+            if (catError) {
+              // If parent_id doesn't exist yet, ignore subcategories
+              if (catError.code === '42703') {
+                console.warn('[useProducts] parent_id column missing in categories');
+                query = query.eq('category_id', filters.category_id);
+              } else {
+                throw catError;
+              }
+            } else if (subCats && subCats.length > 0) {
+              const ids = [filters.category_id, ...subCats.map(c => c.id)];
+              query = query.in('category_id', ids);
+            } else {
+              query = query.eq('category_id', filters.category_id);
+            }
+          } catch (e) {
+            console.error('[useProducts] Error fetching subcategories:', e);
+            query = query.eq('category_id', filters.category_id);
+          }
         }
         if (filters.search) {
           query = query.or(`name.ilike.%${filters.search}%,engine_code.ilike.%${filters.search}%,brand.ilike.%${filters.search}%`);
@@ -78,25 +102,41 @@ export function useProducts(filters: ProductFilters = {}) {
   });
 }
 
-export function useProduct(id: string) {
+export function useProduct(idOrSlug: string) {
   return useQuery({
-    queryKey: ['product', id],
+    queryKey: ['product', idOrSlug],
     queryFn: async () => {
-      console.log('[useProduct] Fetching product by id:', id);
+      console.log('[useProduct] Fetching product by id or slug:', idOrSlug);
       try {
-        const { data, error } = await withTimeout(supabase.from('products').select('*').eq('id', id).maybeSingle(), 10000);
+        // Try to fetch by ID first (if it's a valid UUID) or by slug
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+        
+        let query = supabase.from('products').select('*');
+        if (isUuid) {
+          query = query.eq('id', idOrSlug);
+        } else {
+          // Only query by slug if it exists in the database
+          query = query.eq('slug', idOrSlug);
+        }
+
+        const { data, error } = await withTimeout(query.limit(1).maybeSingle(), 10000);
         if (error) {
-          console.error('[useProduct] Supabase error:', error.message);
+          // If slug query fails with 400, it might be because the column doesn't exist yet
+          if (error.code === '42703' && !isUuid) {
+            console.warn('[useProduct] Slug column missing, falling back to ID-only search');
+            return null;
+          }
+          console.error('[useProduct] Supabase error:', error.message, error.code);
           throw error;
         }
         console.log('[useProduct] Success:', data?.id);
-        return data as Product;
+        return data as Product | null;
       } catch (err: any) {
         console.error('[useProduct] Unexpected error:', err.message || err);
         throw err;
       }
     },
-    enabled: !!id,
+    enabled: !!idOrSlug,
     retry: 1,
     staleTime: 30000,
   });
@@ -208,12 +248,16 @@ export function useRelatedProducts(product: Product | undefined) {
       console.log('Fetching related products for:', product?.id);
       if (!product) return [];
       try {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .neq('id', product.id)
-          .eq('brand', product.brand)
-          .limit(4);
+        let query = supabase.from('products').select('*').neq('id', product.id).limit(4);
+        
+        if (product.brand) {
+          query = query.eq('brand', product.brand);
+        } else {
+          // Fallback to category if brand is missing
+          query = query.eq('category_id', product.category_id);
+        }
+
+        const { data, error } = await query;
         if (error) {
           console.error('Supabase error fetching related products:', error);
           throw error;

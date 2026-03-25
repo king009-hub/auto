@@ -81,10 +81,10 @@ const MainHeader = () => {
 
             <div className="flex flex-col items-end justify-center gap-1 text-[#333333] relative shrink-0 pt-4">
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-tight">{t('header.basket')}</span>
+                <span className="text-[11px] font-normal uppercase tracking-tight">{t('header.basket')}</span>
                 <Link to="/cart" className="relative">
                   <div className="border-2 border-[#b38a2e] rounded-sm w-[36px] h-[36px] flex items-center justify-center bg-transparent">
-                    <span className="text-[#b38a2e] text-[18px] font-bold">
+                    <span className="text-[#b38a2e] text-[18px] font-normal">
                       {totalItems}
                     </span>
                   </div>
@@ -132,13 +132,13 @@ const MainHeader = () => {
                     <div className="p-8 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-[#b38a2e]" /></div>
                   ) : (
                     <Accordion type="single" collapsible className="w-full">
-                      {categories?.map((cat) => (
+                      {categories?.filter(c => !c.parent_id).map((cat) => (
                         <AccordionItem key={cat.id} value={cat.id} className="border-b border-gray-300 bg-white">
                           <div className="flex items-center justify-between">
                             <Link
                               to={`/products?category=${cat.slug}`}
                               onClick={() => setMobileMenuOpen(false)}
-                              className="flex-1 px-4 py-4 text-[13px] font-black uppercase tracking-tight text-[#1a1a1a]"
+                              className="flex-1 px-4 py-4 text-[13px] font-medium uppercase tracking-tight text-foreground"
                             >
                               {translateDynamic(cat.name)}
                             </Link>
@@ -146,29 +146,315 @@ const MainHeader = () => {
                               {/* Chevron is handled by the component, but we can style it */}
                             </AccordionTrigger>
                           </div>
-                          <AccordionContent className="p-0 bg-[#f9f9f9]">
-                            <div className="flex flex-col">
-                              {brands?.filter(brand => cat.brand_ids?.includes(brand.id)).map(brand => (
+                          <AccordionContent className="p-0 bg-white">
+                              <div className="flex flex-col">
+                                {/* Engines specific layout */}
+                                {cat.slug === 'engines' ? (
+                                  <Accordion type="single" collapsible className="w-full">
+                                    {[
+                                      {
+                                        title: 'DIESEL OPPORTUNITY',
+                                        fuel: 'Diesel',
+                                        items: [
+                                          { name: 'BMW - MINI', brands: ['BMW', 'Mini'] },
+                                          { name: 'RENAULT NISSAN VOLVO', brands: ['Renault', 'Nissan', 'Volvo'] },
+                                          { name: 'MERCEDES SMART JEEP', brands: ['Mercedes', 'Smart', 'Jeep'] },
+                                          { name: 'PSA - FORD', brands: ['Peugeot', 'Citroen', 'Ford'] },
+                                          { name: 'OPEL', brands: ['Opel'] },
+                                          { name: 'VOLKSWAGEN - AUDI', brands: ['Volkswagen', 'Audi'] },
+                                          { name: 'KIA CHEVROLET', brands: ['Kia', 'Chevrolet'] },
+                                          { name: 'FIAT - LANCIA - ALFA', brands: ['Fiat', 'Lancia', 'Alfa Romeo'] },
+                                          { name: 'IVECO', brands: ['Iveco'] },
+                                          { name: 'JAGUAR LAND-ROVER', brands: ['Jaguar', 'Land Rover'] },
+                                          { name: 'MITSUBISHI', brands: ['Mitsubishi'] },
+                                          { name: 'MAZDA - SUZUKI', brands: ['Mazda', 'Suzuki'] },
+                                          { name: 'TOYOTA HONDA', brands: ['Toyota', 'Honda'] },
+                                        ]
+                                      },
+                                      {
+                                        title: 'ESSENCE OCCASION',
+                                        fuel: 'Petrol',
+                                        items: [
+                                          { name: 'RENAULT NISSAN', brands: ['Renault', 'Nissan'] },
+                                          { name: 'PSA FORD JAGUAR', brands: ['Peugeot', 'Citroen', 'Ford', 'Jaguar'] },
+                                          { name: 'PORSCHE', brands: ['Porsche'] },
+                                          { name: 'VOLKSWAGEN - AUDI', brands: ['Volkswagen', 'Audi'] },
+                                          { name: 'MITSUBISHI', brands: ['Mitsubishi'] },
+                                          { name: 'BMW - MINI', brands: ['BMW', 'Mini'] },
+                                          { name: 'MAZDA PERFORMANCE', brands: ['Mazda'] },
+                                          { name: 'MERCEDES - SMART', brands: ['Mercedes', 'Smart'] },
+                                          { name: 'HONDA HYUNDAI', brands: ['Honda', 'Hyundai'] },
+                                          { name: 'LOTUS SECMA', brands: ['Lotus', 'Secma'] },
+                                          { name: 'FORD', brands: ['Ford'] },
+                                          { name: 'OPEL FIAT ABARTH', brands: ['Opel', 'Fiat'] },
+                                          { name: 'SUZUKI SUBARU', brands: ['Suzuki', 'Subaru'] },
+                                        ]
+                                      }
+                                    ].map((col, idx) => (
+                                      <AccordionItem key={idx} value={`engine-${idx}`} className="border-b border-gray-100 last:border-0">
+                                        <div className="flex items-center justify-between bg-gray-50/50">
+                                          <Link 
+                                            to={`/products?category=engines&fuel_type=${col.fuel}`}
+                                            onClick={() => setMobileMenuOpen(false)}
+                                            className="flex-1 px-8 py-3.5 text-[12px] font-black uppercase tracking-tighter text-foreground"
+                                          >
+                                            {col.title}
+                                          </Link>
+                                          <AccordionTrigger className="w-12 h-[48px] p-0 flex items-center justify-center hover:no-underline border-l border-gray-100/50" />
+                                        </div>
+                                        <AccordionContent className="p-0 bg-white">
+                                          <div className="flex flex-col">
+                                            {col.items.map((item, itemIdx) => {
+                                              const brandsQuery = item.brands ? `&brand=${item.brands.join(',')}` : '';
+                                              return (
+                                                <Link
+                                                  key={itemIdx}
+                                                  to={`/products?category=engines&fuel_type=${col.fuel}${brandsQuery}`}
+                                                  onClick={() => setMobileMenuOpen(false)}
+                                                  className="px-12 py-3 text-[12px] text-[#444] border-b border-gray-50 last:border-0 hover:bg-gray-50 flex items-center justify-between uppercase tracking-tight"
+                                                >
+                                                  {item.name}
+                                                  <ChevronRight className="h-3 w-3 opacity-20" />
+                                                </Link>
+                                              );
+                                            })}
+                                          </div>
+                                        </AccordionContent>
+                                      </AccordionItem>
+                                    ))}
+                                  </Accordion>
+                                ) : cat.slug === 'engine-parts' ? (
+                                  <Accordion type="single" collapsible className="w-full">
+                                    {[
+                                      {
+                                        title: 'LOW ENGINES',
+                                        slug: 'low-engines',
+                                        items: [
+                                          { name: 'VOLKSWAGEN - AUDI', brands: ['Volkswagen', 'Audi'] },
+                                          { name: 'RENAULT NISSAN VOLVO', brands: ['Renault', 'Nissan', 'Volvo'] },
+                                          { name: 'MERCEDES SMART JEEP', brands: ['Mercedes', 'Smart', 'Jeep'] },
+                                          { name: 'BMW - MINI', brands: ['BMW', 'Mini'] },
+                                          { name: 'FIAT OPEL SAAB ALFA', brands: ['Fiat', 'Opel', 'Saab', 'Alfa Romeo'] },
+                                          { name: 'HYUNDAI KIA CHEVROLET', brands: ['Hyundai', 'Kia', 'Chevrolet'] },
+                                          { name: 'PORSCHE', brands: ['Porsche'] },
+                                          { name: 'SUBARU ISUZU', brands: ['Subaru', 'Isuzu'] },
+                                          { name: 'PSA - FORD', brands: ['Peugeot', 'Citroen', 'Ford'] },
+                                          { name: 'MITSUBISHI TOYOTA', brands: ['Mitsubishi', 'Toyota'] },
+                                          { name: 'LAND-ROVER JAGUAR', brands: ['Land Rover', 'Jaguar'] },
+                                        ]
+                                      },
+                                      {
+                                        title: 'CULASSES',
+                                        slug: 'culasses',
+                                        items: [
+                                          { name: 'VOLKSWAGEN - AUDI', brands: ['Volkswagen', 'Audi'] },
+                                          { name: 'BMW - MINI', brands: ['BMW', 'Mini'] },
+                                          { name: 'MERCEDES SMART JEEP', brands: ['Mercedes', 'Smart', 'Jeep'] },
+                                          { name: 'PSA - FORD', brands: ['Peugeot', 'Citroen', 'Ford'] },
+                                          { name: 'PORSCHE', brands: ['Porsche'] },
+                                          { name: 'RENAULT NISSAN VOLVO', brands: ['Renault', 'Nissan', 'Volvo'] },
+                                          { name: 'HYUNDAI KIA CHEVROLET', brands: ['Hyundai', 'Kia', 'Chevrolet'] },
+                                          { name: 'FIAT OPEL SAAB ALFA', brands: ['Fiat', 'Opel', 'Saab', 'Alfa Romeo'] },
+                                          { name: 'MITSUBISHI TOYOTA', brands: ['Mitsubishi', 'Toyota'] },
+                                          { name: 'SUBARU ISUZU', brands: ['Subaru', 'Isuzu'] },
+                                          { name: 'LAND-ROVER JAGUAR', brands: ['Land Rover', 'Jaguar'] },
+                                        ]
+                                      },
+                                      {
+                                        title: 'OTHER ENGINE PARTS',
+                                        items: [
+                                          { name: 'COLLECTORS', subTitle: 'ADMISSION-EXHAUST', slug: 'collectors' },
+                                          { name: 'BEAMS - CALCULATORS', subTitle: 'OCCASION', slug: 'beams-calculators' },
+                                          { name: 'CRANKSHAFTS - CONNECTING RODS', subTitle: 'OCCASION', slug: 'crankshafts-connecting-rods' },
+                                          { name: 'SENSORS PROBES', subTitle: 'OCCASION', slug: 'sensors-probes' },
+                                        ]
+                                      },
+                                      {
+                                        title: 'INJECTIONS',
+                                        items: [
+                                          { name: 'INJECTORS DIESEL', subTitle: 'OCCASION', slug: 'injectors-diesel' },
+                                          { name: 'INJECTORS ESSENCE', subTitle: 'OCCASION', slug: 'injectors-essence' },
+                                          { name: 'INJECTION PUMP', subTitle: 'OCCASION', slug: 'injection-pump' },
+                                        ]
+                                      },
+                                      {
+                                        title: 'VARIOUS',
+                                        items: [
+                                          { name: 'CONSUMABLES', slug: 'consumables' },
+                                          { name: 'VARIOUS OPPORTUNITIES', slug: 'various-opportunities' },
+                                        ]
+                                      }
+                                    ].map((col, idx) => (
+                                      <AccordionItem key={idx} value={`engine-part-${idx}`} className="border-b border-gray-100 last:border-0">
+                                        <div className="flex items-center justify-between bg-gray-50/50">
+                                          <Link 
+                                            to={`/products?category=${col.slug || 'engine-parts'}`}
+                                            onClick={() => setMobileMenuOpen(false)}
+                                            className="flex-1 px-8 py-3.5 text-[12px] font-black uppercase tracking-tighter text-foreground"
+                                          >
+                                            {col.title}
+                                          </Link>
+                                          <AccordionTrigger className="w-12 h-[48px] p-0 flex items-center justify-center hover:no-underline border-l border-gray-100/50" />
+                                        </div>
+                                        <AccordionContent className="p-0 bg-white">
+                                          <div className="flex flex-col">
+                                            {col.items.map((item, itemIdx) => {
+                                              const brandsQuery = item.brands ? `&brand=${item.brands.join(',')}` : '';
+                                              const targetSlug = item.slug || col.slug;
+                                              return (
+                                                <Link
+                                                  key={itemIdx}
+                                                  to={`/products?category=${targetSlug}${brandsQuery}`}
+                                                  onClick={() => setMobileMenuOpen(false)}
+                                                  className="px-12 py-3 text-[12px] text-[#444] border-b border-gray-50 last:border-0 hover:bg-gray-50 flex flex-col uppercase tracking-tight"
+                                                >
+                                                  <span className="font-semibold">{item.name}</span>
+                                                  {item.subTitle && (
+                                                    <span className="text-[10px] opacity-60 font-normal italic">{item.subTitle}</span>
+                                                  )}
+                                                </Link>
+                                              );
+                                            })}
+                                          </div>
+                                        </AccordionContent>
+                                      </AccordionItem>
+                                    ))}
+                                  </Accordion>
+                                ) : cat.slug === 'gearboxes' ? (
+                                  <Accordion type="single" collapsible className="w-full">
+                                    {[
+                                      {
+                                        title: 'AUTOMATIC OCCASION',
+                                        items: [
+                                          { name: 'MERCEDES SMART JEEP', brands: ['Mercedes', 'Smart', 'Jeep'] },
+                                          { name: 'PSA FORD VOLVO', brands: ['Peugeot', 'Citroen', 'Ford', 'Volvo'] },
+                                          { name: 'BMW', brands: ['BMW'] },
+                                          { name: 'PORSCHE', brands: ['Porsche'] },
+                                          { name: 'VOLKSWAGEN - AUDI', brands: ['Volkswagen', 'Audi'] },
+                                          { name: 'HYUNDAI - KIA', brands: ['Hyundai', 'Kia'] },
+                                          { name: 'RENAULT - NISSAN', brands: ['Renault', 'Nissan'] },
+                                          { name: 'OPEL CADILLAC', brands: ['Opel', 'Cadillac'] },
+                                          { name: 'MINI', brands: ['Mini'] },
+                                          { name: 'IVECO - CHEVROLET', brands: ['Iveco', 'Chevrolet'] },
+                                          { name: 'HONDA - MITSUBISHI', brands: ['Honda', 'Mitsubishi'] },
+                                          { name: 'TOYOTA JAGUAR', brands: ['Toyota', 'Jaguar'] },
+                                          { name: 'SUZUKI', brands: ['Suzuki'] },
+                                        ]
+                                      },
+                                      {
+                                        title: 'MANUALS OCCASION',
+                                        items: [
+                                          { name: 'VOLKSWAGEN - AUDI', brands: ['Volkswagen', 'Audi'] },
+                                          { name: 'RENAULT NISSAN VOLVO', brands: ['Renault', 'Nissan', 'Volvo'] },
+                                          { name: 'PSA - FORD', brands: ['Peugeot', 'Citroen', 'Ford'] },
+                                          { name: 'FIAT - LANCIA - ALFA', brands: ['Fiat', 'Lancia', 'Alfa Romeo'] },
+                                          { name: 'BMW - MINI', brands: ['BMW', 'Mini'] },
+                                          { name: 'HONDA', brands: ['Honda'] },
+                                          { name: 'MERCEDES- SMART- JEEP', brands: ['Mercedes', 'Smart', 'Jeep'] },
+                                          { name: 'MG ISUZU', brands: ['MG', 'Isuzu'] },
+                                          { name: 'MAZDA IVECO', brands: ['Mazda', 'Iveco'] },
+                                          { name: 'FORD - DODGE', brands: ['Ford', 'Dodge'] },
+                                          { name: 'OPEL', brands: ['Opel'] },
+                                          { name: 'PORSCHE', brands: ['Porsche'] },
+                                          { name: 'LOTUS SECMA', brands: ['Lotus', 'Secma'] },
+                                          { name: 'TOYOTA MITSUBISHI', brands: ['Toyota', 'Mitsubishi'] },
+                                        ]
+                                      }
+                                    ].map((col, idx) => (
+                                      <AccordionItem key={idx} value={`gearbox-${idx}`} className="border-b border-gray-100 last:border-0">
+                                        <div className="flex items-center justify-between bg-gray-50/50">
+                                          <Link 
+                                            to={`/products?category=gearboxes`}
+                                            onClick={() => setMobileMenuOpen(false)}
+                                            className="flex-1 px-8 py-3.5 text-[12px] font-black uppercase tracking-tighter text-foreground"
+                                          >
+                                            {col.title}
+                                          </Link>
+                                          <AccordionTrigger className="w-12 h-[48px] p-0 flex items-center justify-center hover:no-underline border-l border-gray-100/50" />
+                                        </div>
+                                        <AccordionContent className="p-0 bg-white">
+                                          <div className="flex flex-col">
+                                            {col.items.map((item, itemIdx) => {
+                                              const brandsQuery = item.brands ? `&brand=${item.brands.join(',')}` : '';
+                                              return (
+                                                <Link
+                                                  key={itemIdx}
+                                                  to={`/products?category=gearboxes${brandsQuery}`}
+                                                  onClick={() => setMobileMenuOpen(false)}
+                                                  className="px-12 py-3 text-[12px] text-[#444] border-b border-gray-50 last:border-0 hover:bg-gray-50 flex items-center justify-between uppercase tracking-tight"
+                                                >
+                                                  {item.name}
+                                                  <ChevronRight className="h-3 w-3 opacity-20" />
+                                                </Link>
+                                              );
+                                            })}
+                                          </div>
+                                        </AccordionContent>
+                                      </AccordionItem>
+                                    ))}
+                                  </Accordion>
+                                ) : (
+                                  <Accordion type="single" collapsible className="w-full">
+                                    {categories?.filter(sub => sub.parent_id === cat.id).map(sub => (
+                                      <AccordionItem key={sub.id} value={sub.id} className="border-b border-gray-100 last:border-0">
+                                        <div className="flex items-center justify-between bg-gray-50/50">
+                                          <Link 
+                                            to={`/products?category=${sub.slug}`}
+                                            onClick={() => setMobileMenuOpen(false)}
+                                            className="flex-1 px-8 py-3.5 text-[12px] font-black uppercase tracking-tighter text-foreground"
+                                          >
+                                            {translateDynamic(sub.name)}
+                                          </Link>
+                                          <AccordionTrigger className="w-12 h-[48px] p-0 flex items-center justify-center hover:no-underline border-l border-gray-100/50" />
+                                        </div>
+                                        <AccordionContent className="p-0 bg-white">
+                                          <div className="flex flex-col">
+                                            {brands?.filter(brand => sub.brand_ids?.includes(brand.id)).map(brand => (
+                                              <Link
+                                                key={brand.id}
+                                                to={`/products?category=${sub.slug}&brand=${brand.name}`}
+                                                onClick={() => setMobileMenuOpen(false)}
+                                                className="px-12 py-3 text-[12px] text-[#444] border-b border-gray-50 last:border-0 hover:bg-gray-50 flex items-center justify-between uppercase tracking-tight"
+                                              >
+                                                {translateDynamic(brand.name)}
+                                                <ChevronRight className="h-3 w-3 opacity-20" />
+                                              </Link>
+                                            ))}
+                                          </div>
+                                        </AccordionContent>
+                                      </AccordionItem>
+                                    ))}
+                                  </Accordion>
+                                )}
+
+                                {/* Direct brands if no subcategories and not special case */}
+                                {!categories?.some(sub => sub.parent_id === cat.id) && !['engines', 'engine-parts', 'gearboxes'].includes(cat.slug) && (
+                                  <div className="flex flex-col">
+                                    {brands?.filter(brand => cat.brand_ids?.includes(brand.id)).map(brand => (
+                                      <Link
+                                        key={brand.id}
+                                        to={`/products?category=${cat.slug}&brand=${brand.name}`}
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className="px-8 py-3 text-[13px] text-[#333] border-b border-gray-100 hover:bg-gray-50 transition-colors flex items-center justify-between uppercase tracking-tight"
+                                      >
+                                        {translateDynamic(brand.name)}
+                                        <ChevronRight className="h-3 w-3 opacity-30" />
+                                      </Link>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Link to all products in this main category */}
                                 <Link
-                                  key={brand.id}
-                                  to={`/products?category=${cat.slug}&brand=${brand.name}`}
+                                  to={`/products?category=${cat.slug}`}
                                   onClick={() => setMobileMenuOpen(false)}
-                                  className="px-8 py-3 text-[13px] text-[#333] border-b border-gray-200 hover:bg-white transition-colors flex items-center justify-between"
+                                  className="px-8 py-4 text-[13px] font-black uppercase text-[#b38a2e] bg-white hover:bg-gray-50 transition-colors flex items-center justify-between border-t border-gray-200 mt-2"
                                 >
-                                  {translateDynamic(brand.name)}
-                                  <ChevronRight className="h-3 w-3 opacity-30" />
+                                  {t('header.view_all', { name: translateDynamic(cat.name) })}
+                                  <ChevronRight className="h-4 w-4" />
                                 </Link>
-                              ))}
-                              <Link
-                                to={`/products?category=${cat.slug}`}
-                                onClick={() => setMobileMenuOpen(false)}
-                                className="px-8 py-3 text-[13px] font-bold text-[#b38a2e] hover:bg-white transition-colors flex items-center justify-between"
-                              >
-                                {t('header.view_all', { name: translateDynamic(cat.name) })}
-                                <ChevronRight className="h-4 w-4" />
-                              </Link>
-                            </div>
-                          </AccordionContent>
+                              </div>
+                            </AccordionContent>
                         </AccordionItem>
                       ))}
                     </Accordion>
@@ -186,7 +472,7 @@ const MainHeader = () => {
                   <Link
                     to="/account"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center justify-center w-full py-3 bg-[#b38a2e] text-white font-black uppercase text-xs tracking-widest rounded-full"
+                    className="flex items-center justify-center w-full py-3 bg-[#b38a2e] text-white font-medium uppercase text-xs tracking-widest rounded-full"
                   >
                     {t('header.my_account')}
                   </Link>
@@ -194,16 +480,16 @@ const MainHeader = () => {
               </div>
             </SheetContent>
           </Sheet>
-          <Link to="/" className="flex items-center shrink-0">
+          <Link to="/" className="flex items-center justify-center min-w-0 px-2">
             <img 
               src="/header.jpg" 
               alt="ENGINE MARKETS" 
-              className="h-[60px] sm:h-[80px] w-[250px] sm:w-[300px] object-contain"
+              className="h-[50px] xs:h-[60px] sm:h-[80px] w-auto max-w-full object-contain"
             />
           </Link>
           <Link to="/cart" className="relative p-2">
             <ShoppingCart className="h-5 w-5 text-primary" />
-            <span className="absolute top-0 right-0 border border-primary text-primary text-[10px] font-bold w-4 h-4 flex items-center justify-center bg-card">
+            <span className="absolute top-0 right-0 border border-primary text-primary text-[10px] font-normal w-4 h-4 flex items-center justify-center bg-card">
               {totalItems}
             </span>
           </Link>

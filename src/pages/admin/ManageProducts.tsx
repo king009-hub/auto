@@ -12,13 +12,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, Loader2, Youtube } from 'lucide-react';
 import { FUEL_TYPES } from '@/lib/constants';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import ImageUpload from '@/components/admin/ImageUpload';
 
 interface ProductForm {
   name: string;
+  slug: string;
   description: string;
   brand: string;
   fuel_type: string;
@@ -30,13 +31,16 @@ interface ProductForm {
   compatibility: string;
   images: string[];
   category_id: string;
+  parent_category_id: string;
   availability: boolean;
+  youtube_url: string;
 }
 
 const emptyForm: ProductForm = {
-  name: '', description: '', brand: '', fuel_type: 'Diesel', engine_code: '',
+  name: '', slug: '', description: '', brand: '', fuel_type: 'Diesel', engine_code: '',
   price: '', mileage: '', year: '', condition: 'Tested - OK',
-  compatibility: '', images: [], category_id: '', availability: true,
+  compatibility: '', images: [], category_id: '', parent_category_id: '', availability: true,
+  youtube_url: '',
 };
 
 const ManageProducts = () => {
@@ -51,6 +55,18 @@ const ManageProducts = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<ProductForm>(emptyForm);
 
+  const getYouTubeEmbedUrl = (url: string | null) => {
+    if (!url) return null;
+    let videoId = '';
+    try {
+      if (url.includes('v=')) videoId = url.split('v=')[1].split('&')[0];
+      else if (url.includes('youtu.be/')) videoId = url.split('youtu.be/')[1].split('?')[0];
+      else if (url.includes('embed/')) videoId = url.split('embed/')[1].split('?')[0];
+      else if (url.includes('shorts/')) videoId = url.split('shorts/')[1].split('?')[0];
+    } catch (e) { return null; }
+    return videoId ? `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1` : null;
+  };
+
   useEffect(() => {
     if (!authLoading && (!user || !isAdmin)) navigate('/');
   }, [user, isAdmin, authLoading, navigate]);
@@ -62,9 +78,13 @@ const ManageProducts = () => {
   };
 
   const openEdit = (product: any) => {
+    const productCategory = categories?.find(c => c.id === product.category_id);
+    const parentId = productCategory?.parent_id || (productCategory ? productCategory.id : '');
+    
     setEditingId(product.id);
     setForm({
       name: product.name,
+      slug: product.slug || '',
       description: product.description || '',
       brand: product.brand,
       fuel_type: product.fuel_type,
@@ -76,7 +96,9 @@ const ManageProducts = () => {
       compatibility: product.compatibility?.join(', ') || '',
       images: product.images || [],
       category_id: product.category_id || '',
+      parent_category_id: parentId,
       availability: product.availability,
+      youtube_url: product.youtube_url || '',
     });
     setDialogOpen(true);
   };
@@ -89,13 +111,14 @@ const ManageProducts = () => {
   };
 
   const handleSave = async () => {
-    if (!form.name || !form.engine_code || !form.price) {
-      toast({ title: 'Missing fields', description: 'Name, engine code & price are required.', variant: 'destructive' });
+    if (!form.name || !form.engine_code || !form.price || !form.category_id) {
+      toast({ title: 'Missing fields', description: 'Name, engine code, price & category are required.', variant: 'destructive' });
       return;
     }
 
     const payload = {
       name: form.name,
+      slug: form.slug || null,
       description: form.description,
       brand: form.brand,
       fuel_type: form.fuel_type,
@@ -108,6 +131,7 @@ const ManageProducts = () => {
       images: form.images,
       category_id: form.category_id || null,
       availability: form.availability,
+      youtube_url: form.youtube_url || null,
     };
 
     if (editingId) {
@@ -175,10 +199,51 @@ const ManageProducts = () => {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div><Label>Name *</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
+                  <div><Label>Slug (SEO URL)</Label><Input value={form.slug} onChange={e => setForm({ ...form, slug: e.target.value })} placeholder="e.g. peugeot-engine-code" /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div><Label>Engine Code *</Label><Input value={form.engine_code} onChange={e => setForm({ ...form, engine_code: e.target.value })} /></div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label>Parent Category</Label>
+                      <Select 
+                        value={form.parent_category_id} 
+                        onValueChange={v => {
+                          // Clear subcategory when parent changes
+                          setForm({ ...form, parent_category_id: v, category_id: '' });
+                        }}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          {categories?.filter(c => !c.parent_id).map(c => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Subcategory</Label>
+                      <Select 
+                        value={form.category_id} 
+                        onValueChange={v => setForm({ ...form, category_id: v })}
+                        disabled={!form.parent_category_id}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          {categories?.filter(c => c.parent_id === form.parent_category_id).map(c => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                          {/* Fallback to parent itself if it's a leaf node */}
+                          {categories?.filter(c => c.id === form.parent_category_id).map(c => (
+                            <SelectItem key={`${c.id}-self`} value={c.id}>{c.name} (General)</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
                 <div><Label>Description</Label><Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3} /></div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Brand</Label>
                     <Select value={form.brand} onValueChange={v => setForm({ ...form, brand: v })}>
@@ -199,13 +264,6 @@ const ManageProducts = () => {
                       <SelectContent>{FUEL_TYPES.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label>Category</Label>
-                    <Select value={form.category_id} onValueChange={v => setForm({ ...form, category_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>{categories?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
                 </div>
                 <div className="grid grid-cols-4 gap-4">
                   <div><Label>Price ($) *</Label><Input type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} /></div>
@@ -215,6 +273,27 @@ const ManageProducts = () => {
                 </div>
                 <div><Label>Compatibility (comma-separated)</Label><Input value={form.compatibility} onChange={e => setForm({ ...form, compatibility: e.target.value })} placeholder="Renault Clio, Renault Megane" /></div>
                 
+                <div><Label>YouTube Video URL (Optional)</Label><Input value={form.youtube_url} onChange={e => setForm({ ...form, youtube_url: e.target.value })} placeholder="https://www.youtube.com/watch?v=..." /></div>
+                
+                {getYouTubeEmbedUrl(form.youtube_url) && (
+                  <div className="mt-2 space-y-2">
+                    <Label className="flex items-center gap-2 text-xs text-muted-foreground uppercase font-bold">
+                      <Youtube className="h-3 w-3 text-red-600" />
+                      Video Preview
+                    </Label>
+                    <div className="aspect-video rounded-lg overflow-hidden border border-border bg-black">
+                      <iframe
+                        width="100%"
+                        height="100%"
+                        src={getYouTubeEmbedUrl(form.youtube_url)!}
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      ></iframe>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-2">
                   <Checkbox
                     id="availability"
@@ -243,8 +322,9 @@ const ManageProducts = () => {
               <thead className="bg-muted">
                 <tr>
                   <th className="text-left px-4 py-3 font-bold uppercase text-xs text-muted-foreground">Image</th>
-                  <th className="text-left px-4 py-3 font-bold uppercase text-xs text-muted-foreground">Name</th>
+                  <th className="text-left px-4 py-3 font-bold uppercase text-xs text-muted-foreground">Name / Slug</th>
                   <th className="text-left px-4 py-3 font-bold uppercase text-xs text-muted-foreground">Code</th>
+                  <th className="text-left px-4 py-3 font-bold uppercase text-xs text-muted-foreground">Category</th>
                   <th className="text-left px-4 py-3 font-bold uppercase text-xs text-muted-foreground">Brand</th>
                   <th className="text-left px-4 py-3 font-bold uppercase text-xs text-muted-foreground">Price</th>
                   <th className="text-right px-4 py-3 font-bold uppercase text-xs text-muted-foreground">Actions</th>
@@ -267,21 +347,33 @@ const ManageProducts = () => {
                     </td>
                   </tr>
                 ) : (
-                  data?.products.map(p => (
-                    <tr key={p.id} className="hover:bg-muted/30">
-                      <td className="px-4 py-2"><img src={p.images?.[0] || '/placeholder.svg'} alt="" className="w-12 h-12 object-cover rounded" /></td>
-                      <td className="px-4 py-2 font-semibold text-foreground">{p.name}</td>
-                      <td className="px-4 py-2 text-muted-foreground">{p.engine_code}</td>
-                      <td className="px-4 py-2 text-muted-foreground">{p.brand}</td>
-                      <td className="px-4 py-2 font-bold text-primary">${Math.round(Number(p.price))}</td>
-                      <td className="px-4 py-2 text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDelete(p.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                    data?.products.map(p => {
+                      const category = categories?.find(c => c.id === p.category_id);
+                      const parent = category?.parent_id ? categories?.find(c => c.id === category.parent_id) : null;
+                      
+                      return (
+                        <tr key={p.id} className="hover:bg-muted/30">
+                          <td className="px-4 py-2"><img src={p.images?.[0] || '/placeholder.svg'} alt="" className="w-12 h-12 object-cover rounded" /></td>
+                          <td className="px-4 py-2">
+                            <div className="font-semibold text-foreground">{p.name}</div>
+                            <div className="text-[10px] text-muted-foreground font-mono">{p.slug}</div>
+                          </td>
+                          <td className="px-4 py-2 text-muted-foreground">{p.engine_code}</td>
+                          <td className="px-4 py-2">
+                            <div className="text-xs font-medium text-foreground">{category?.name || '—'}</div>
+                            {parent && <div className="text-[10px] text-muted-foreground uppercase tracking-tight">{parent.name}</div>}
+                          </td>
+                          <td className="px-4 py-2 text-muted-foreground">{p.brand}</td>
+                          <td className="px-4 py-2 font-bold text-primary">${Math.round(Number(p.price))}</td>
+                          <td className="px-4 py-2 text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleDelete(p.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                 )}
               </tbody>
             </table>
