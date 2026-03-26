@@ -8,13 +8,16 @@ import { translateDynamic } from '@/lib/translate';
 const NavBar = () => {
   const { t } = useTranslation();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { data: categories, isLoading: categoriesLoading } = useCategories();
   const { data: brands, isLoading: brandsLoading } = useBrands();
 
   return (
-    <nav className="bg-[#f2f2f2] sticky top-0 z-50 hidden md:block border-b border-[#dddddd]">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-start gap-0">
+    <>
+      {/* Desktop Navigation - only show on large screens (1024px+) */}
+      <nav className="bg-[#f2f2f2] sticky top-0 z-50 hidden lg:block border-b border-[#dddddd]">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-start gap-0">
           {categoriesLoading ? (
             <div className="flex items-center px-3 py-3 text-[11px] font-normal tracking-wider text-gray-500 uppercase">
               <Loader2 className="h-3 w-3 animate-spin mr-2" />
@@ -401,6 +404,9 @@ const NavBar = () => {
         </div>
       </div>
     </nav>
+
+
+  </>
   );
 };
 
